@@ -1,4 +1,4 @@
-"use-client";
+"use client";
 
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -25,7 +25,7 @@ function Transcript({
 }: TranscriptProps) {
   const { transcriptItems, toggleTranscriptItemExpand } = useTranscript();
   const transcriptRef = useRef<HTMLDivElement | null>(null);
-  const [prevLogs, setPrevLogs] = useState<TranscriptItem[]>([]);
+  const prevLogsRef = useRef<TranscriptItem[]>([]); // useStateからuseRefに変更
   const [justCopied, setJustCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -36,6 +36,7 @@ function Transcript({
   }
 
   useEffect(() => {
+    const prevLogs = prevLogsRef.current; // refから現在の値を取得
     const hasNewMessage = transcriptItems.length > prevLogs.length;
     const hasUpdatedMessage = transcriptItems.some((newItem, index) => {
       const oldItem = prevLogs[index];
@@ -49,7 +50,8 @@ function Transcript({
       scrollToBottom();
     }
 
-    setPrevLogs(transcriptItems);
+    // 次回の比較のために、refの値を更新（これは再レンダリングを引き起こさない）
+    prevLogsRef.current = transcriptItems; 
   }, [transcriptItems]);
 
   // Autofocus on text box input on load
@@ -93,7 +95,6 @@ function Transcript({
           </div>
         </div>
 
-        {/* Transcript Content */}
         <div
           ref={transcriptRef}
           className="overflow-auto p-4 flex flex-col gap-y-4 h-full"
@@ -195,7 +196,6 @@ function Transcript({
                 </div>
               );
             } else {
-              // Fallback if type is neither MESSAGE nor BREADCRUMB
               return (
                 <div
                   key={itemId}
@@ -229,7 +229,7 @@ function Transcript({
           disabled={!canSend || !userText.trim()}
           className="bg-gray-900 text-white rounded-full px-2 py-2 disabled:opacity-50"
         >
-          <Image src="arrow.svg" alt="Send" width={24} height={24} />
+          <Image src="/arrow.svg" alt="Send" width={24} height={24} />
         </button>
       </div>
     </div>

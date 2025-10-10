@@ -1,0 +1,182 @@
+"use client";
+import React, { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+
+// UI components
+import Transcript from "./components/Transcript";
+import Events from "./components/Events";
+import BottomToolbar from "./components/BottomToolbar";
+
+// Types
+import { SessionStatus } from "@/app/types";
+import type { RealtimeAgent } from '@openai/agents/realtime';
+
+// Context providers & hooks
+import { useTranscript } from "@/app/contexts/TranscriptContext";
+import { useRealtimeSession } from "./hooks/useRealtimeSession";
+import useAudioDownload from "./hooks/useAudioDownload";
+import { useHandleSessionHistory } from "./hooks/useHandleSessionHistory";
+
+function App() {
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>("DISCONNECTED");
+  const [userText, setUserText] = useState<string>("");
+
+  const { addTranscriptBreadcrumb } = useTranscript();
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+
+  const sdkAudioElement = React.useMemo(() => {
+    if (typeof window === 'undefined') return undefined;
+    const el = document.createElement('audio');
+    el.autoplay = true;
+    el.style.display = 'none';
+    document.body.appendChild(el);
+    return el;
+  }, []);
+
+  useEffect(() => {
+    if (sdkAudioElement && !audioElementRef.current) {
+      audioElementRef.current = sdkAudioElement;
+    }
+  }, [sdkAudioElement]);
+
+  const {
+    connect,
+    disconnect,
+    sendUserText,
+    sendEvent,
+    interrupt,
+    mute,
+  } = useRealtimeSession({
+    onConnectionChange: (s) => setSessionStatus(s as SessionStatus),
+  });
+
+  const { startRecording, stopRecording, downloadRecording } = useAudioDownload();
+
+  useHandleSessionHistory();
+
+  const fetchEphemeralKey = async (): Promise<string> => {
+    const tokenResponse = await fetch("/api/session");
+    const data = await tokenResponse.json();
+    if (!data.client_secret?.value) {
+      throw new Error("No ephemeral key provided by the server");
+    }
+    return data.client_secret.value;
+  };
+
+  const connectToRealtime = async () => {
+    if (sessionStatus !== "DISCONNECTED") return;
+    setSessionStatus("CONNECTING");
+
+    try {
+      const singleAgent: RealtimeAgent = {
+        name: "character_agent",
+        instructions: "You are a helpful assistant.", // ここは後で動的にします
+        model: "gpt-4o",
+      };
+
+      await connect({
+        getEphemeralKey: fetchEphemeralKey,
+        initialAgents: [singleAgent],
+        audioElement: sdkAudioElement,
+      });
+
+      addTranscriptBreadcrumb(`Agent: ${singleAgent.name}`, singleAgent);
+      sendEvent({
+        type: 'session.update',
+        session: {
+          turn_detection: {
+            type: 'server_vad',
+            silence_duration_ms: 600,
+            create_response: true,
+          }
+        },
+      });
+
+    } catch (err) {
+      console.error("Error connecting via SDK:", err);
+      setSessionStatus("DISCONNECTED");
+    }
+  };
+
+  const disconnectFromRealtime = () => {
+    disconnect();
+  };
+
+  const handleSendTextMessage = () => {
+    if (!userText.trim()) return;
+    interrupt();
+    try {
+      sendUserText(userText.trim());
+    } catch (err) {
+      console.error('Failed to send via SDK', err);
+    }
+    setUserText("");
+  };
+
+  const onToggleConnection = () => {
+    if (sessionStatus === "CONNECTED" || sessionStatus === "CONNECTING") {
+      disconnectFromRealtime();
+    } else {
+      connectToRealtime();
+    }
+  };
+  
+  useEffect(() => {
+    if (sessionStatus === "CONNECTED" && audioElementRef.current?.srcObject) {
+      const remoteStream = audioElementRef.current.srcObject as MediaStream;
+      startRecording(remoteStream);
+    }
+    return () => {
+      stopRecording();
+    };
+  }, [sessionStatus]);
+
+  return (
+    <div className="text-base flex flex-col h-screen bg-gray-100 text-gray-800 relative">
+      <div className="p-5 text-lg font-semibold flex justify-between items-center">
+        <div
+          className="flex items-center cursor-pointer"
+          onClick={() => window.location.reload()}
+        >
+          <Image
+            src="/openai-logomark.svg"
+            alt="OpenAI Logo"
+            width={20}
+            height={20}
+            className="mr-2"
+          />
+          <div>Realtime AI Chat</div>
+        </div>
+      </div>
+
+      <div className="flex flex-1 gap-2 px-2 overflow-hidden relative">
+        <Transcript
+          userText={userText}
+          setUserText={setUserText}
+          onSendMessage={handleSendTextMessage}
+          downloadRecording={downloadRecording}
+          canSend={sessionStatus === "CONNECTED"}
+        />
+        <Events isExpanded={false} />
+      </div>
+
+      <BottomToolbar
+        sessionStatus={sessionStatus}
+        onToggleConnection={onToggleConnection}
+        isPTTActive={false}
+        setIsPTTActive={() => {}}
+        isPTTUserSpeaking={false}
+        handleTalkButtonDown={() => {}}
+        handleTalkButtonUp={() => {}}
+        isEventsPaneExpanded={false}
+        setIsEventsPaneExpanded={() => {}}
+        isAudioPlaybackEnabled={true}
+        setIsAudioPlaybackEnabled={() => {}}
+        codec={"opus"}
+        onCodecChange={() => {}}
+      />
+    </div>
+  );
+}
+
+export default App;

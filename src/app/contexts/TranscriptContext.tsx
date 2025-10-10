@@ -6,6 +6,7 @@ import React, {
   useState,
   FC,
   PropsWithChildren,
+  useCallback, // useCallbackをインポート
 } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { TranscriptItem } from "@/app/types";
@@ -22,6 +23,7 @@ type TranscriptContextValue = {
   addTranscriptBreadcrumb: (title: string, data?: Record<string, any>) => void;
   toggleTranscriptItemExpand: (itemId: string) => void;
   updateTranscriptItem: (itemId: string, updatedProperties: Partial<TranscriptItem>) => void;
+  clearTranscript: () => void;
 };
 
 const TranscriptContext = createContext<TranscriptContextValue | undefined>(undefined);
@@ -29,6 +31,7 @@ const TranscriptContext = createContext<TranscriptContextValue | undefined>(unde
 export const TranscriptProvider: FC<PropsWithChildren> = ({ children }) => {
   const [transcriptItems, setTranscriptItems] = useState<TranscriptItem[]>([]);
 
+  // タイムスタンプ生成関数は変更なし
   function newTimestampPretty(): string {
     const now = new Date();
     const time = now.toLocaleTimeString([], {
@@ -41,75 +44,54 @@ export const TranscriptProvider: FC<PropsWithChildren> = ({ children }) => {
     return `${time}.${ms}`;
   }
 
-  const addTranscriptMessage: TranscriptContextValue["addTranscriptMessage"] = (itemId, role, text = "", isHidden = false) => {
+  // addTranscriptMessageなどの既存関数も、念のためuseCallbackで囲んで安定させる
+  const addTranscriptMessage: TranscriptContextValue["addTranscriptMessage"] = useCallback((itemId, role, text = "", isHidden = false) => {
     setTranscriptItems((prev) => {
       if (prev.some((log) => log.itemId === itemId && log.type === "MESSAGE")) {
         console.warn(`[addTranscriptMessage] skipping; message already exists for itemId=${itemId}, role=${role}, text=${text}`);
         return prev;
       }
-
       const newItem: TranscriptItem = {
-        itemId,
-        type: "MESSAGE",
-        role,
-        title: text,
-        expanded: false,
-        timestamp: newTimestampPretty(),
-        createdAtMs: Date.now(),
-        status: "IN_PROGRESS",
-        isHidden,
+        itemId, type: "MESSAGE", role, title: text, expanded: false,
+        timestamp: newTimestampPretty(), createdAtMs: Date.now(), status: "IN_PROGRESS", isHidden,
       };
-
       return [...prev, newItem];
     });
-  };
+  }, []);
 
-  const updateTranscriptMessage: TranscriptContextValue["updateTranscriptMessage"] = (itemId, newText, append = false) => {
+  const updateTranscriptMessage: TranscriptContextValue["updateTranscriptMessage"] = useCallback((itemId, newText, append = false) => {
     setTranscriptItems((prev) =>
       prev.map((item) => {
         if (item.itemId === itemId && item.type === "MESSAGE") {
-          return {
-            ...item,
-            title: append ? (item.title ?? "") + newText : newText,
-          };
+          return { ...item, title: append ? (item.title ?? "") + newText : newText };
         }
         return item;
       })
     );
-  };
+  }, []);
 
-  const addTranscriptBreadcrumb: TranscriptContextValue["addTranscriptBreadcrumb"] = (title, data) => {
+  const addTranscriptBreadcrumb: TranscriptContextValue["addTranscriptBreadcrumb"] = useCallback((title, data) => {
     setTranscriptItems((prev) => [
       ...prev,
       {
-        itemId: `breadcrumb-${uuidv4()}`,
-        type: "BREADCRUMB",
-        title,
-        data,
-        expanded: false,
-        timestamp: newTimestampPretty(),
-        createdAtMs: Date.now(),
-        status: "DONE",
-        isHidden: false,
+        itemId: `breadcrumb-${uuidv4()}`, type: "BREADCRUMB", title, data, expanded: false,
+        timestamp: newTimestampPretty(), createdAtMs: Date.now(), status: "DONE", isHidden: false,
       },
     ]);
-  };
+  }, []);
 
-  const toggleTranscriptItemExpand: TranscriptContextValue["toggleTranscriptItemExpand"] = (itemId) => {
-    setTranscriptItems((prev) =>
-      prev.map((log) =>
-        log.itemId === itemId ? { ...log, expanded: !log.expanded } : log
-      )
-    );
-  };
+  const toggleTranscriptItemExpand: TranscriptContextValue["toggleTranscriptItemExpand"] = useCallback((itemId) => {
+    setTranscriptItems((prev) => prev.map((log) => (log.itemId === itemId ? { ...log, expanded: !log.expanded } : log)));
+  }, []);
 
-  const updateTranscriptItem: TranscriptContextValue["updateTranscriptItem"] = (itemId, updatedProperties) => {
-    setTranscriptItems((prev) =>
-      prev.map((item) =>
-        item.itemId === itemId ? { ...item, ...updatedProperties } : item
-      )
-    );
-  };
+  const updateTranscriptItem: TranscriptContextValue["updateTranscriptItem"] = useCallback((itemId, updatedProperties) => {
+    setTranscriptItems((prev) => prev.map((item) => (item.itemId === itemId ? { ...item, ...updatedProperties } : item)));
+  }, []);
+
+  // clearTranscriptをuseCallbackで囲み、関数が再生成されないようにする
+  const clearTranscript = useCallback(() => {
+    setTranscriptItems([]);
+  }, []);
 
   return (
     <TranscriptContext.Provider
@@ -120,6 +102,7 @@ export const TranscriptProvider: FC<PropsWithChildren> = ({ children }) => {
         addTranscriptBreadcrumb,
         toggleTranscriptItemExpand,
         updateTranscriptItem,
+        clearTranscript,
       }}
     >
       {children}
