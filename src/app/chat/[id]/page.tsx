@@ -46,7 +46,6 @@ function ChatPage() {
         setCharacter(selectedChar || null);
       }
     }
-    // ページが開かれた時、またはキャラクターが変わった時にログをクリア
     clearTranscript();
   }, [id, clearTranscript]);
 
@@ -183,12 +182,6 @@ function ChatPage() {
     );
   }
 
-  const handleResetTranscript = () => {
-    if (window.confirm("このキャラクターとの会話ログをリセットします。よろしいですか？")) {
-      clearTranscript();
-    }
-  }
-
   return (
     <div className="text-base flex flex-col h-screen bg-gray-100 text-gray-800 relative">
        {evaluationResult && (
@@ -227,7 +220,7 @@ function ChatPage() {
             <div className="text-sm font-normal text-gray-600 max-w-md truncate">
                 学習目標: {character.learningGoal || "設定されていません"}
             </div>
-             <button onClick={handleResetTranscript} className="text-sm text-gray-500 hover:text-red-600 hover:underline">
+             <button onClick={() => clearTranscript()} className="text-sm text-gray-500 hover:text-red-600 hover:underline">
                 ログをリセット
              </button>
         </div>
@@ -247,17 +240,6 @@ function ChatPage() {
       <BottomToolbar
         sessionStatus={sessionStatus}
         onToggleConnection={onToggleConnection}
-        isPTTActive={false}
-        setIsPTTActive={() => {}}
-        isPTTUserSpeaking={false}
-        handleTalkButtonDown={() => {}}
-        handleTalkButtonUp={() => {}}
-        isEventsPaneExpanded={false}
-        setIsEventsPaneExpanded={() => {}}
-        isAudioPlaybackEnabled={true}
-        setIsAudioPlaybackEnabled={() => {}}
-        codec={"opus"}
-        onCodecChange={() => {}}
         isEvaluating={isEvaluating}
       />
     </div>

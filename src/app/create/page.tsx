@@ -1,8 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { useRouter, useSearchParams } from "next/navigation";
-// import Link from 'next/link'; // ← この行を完全に削除しました。
+import { useRouter, useSearchParams, useParams } from "next/navigation"; // useParams をインポート
 
 interface Character {
   id: string;
@@ -17,7 +16,10 @@ interface Character {
 export default function CreateOrEditCharacterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const characterId = searchParams.get("id");
+  const params = useParams(); // useParamsフックを呼び出す
+
+  // ルートパラメータ(e.g., /edit/123) と クエリパラメータ(e.g., /create?id=123) の両方からIDを取得
+  const characterId = (params.id as string | null) || searchParams.get("id");
 
   const [name, setName] = useState("");
   const [instructions, setInstructions] = useState("");
