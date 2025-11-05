@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useRouter, useSearchParams } from "next/navigation";
-// import Link from 'next/link'; // ← この行が削除（またはコメントアウト）されていることを確認
+// import Link from 'next/link'; // ← この行を完全に削除しました。
 
 interface Character {
   id: string;
