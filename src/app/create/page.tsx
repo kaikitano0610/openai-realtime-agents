@@ -1,7 +1,9 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { useRouter, useSearchParams, useParams } from "next/navigation"; // useParams をインポート
+import { useRouter, useSearchParams, useParams } from "next/navigation";
+
+export const dynamic = 'force-dynamic'; // この行を追加
 
 interface Character {
   id: string;
@@ -16,9 +18,8 @@ interface Character {
 export default function CreateOrEditCharacterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const params = useParams(); // useParamsフックを呼び出す
+  const params = useParams(); 
 
-  // ルートパラメータ(e.g., /edit/123) と クエリパラメータ(e.g., /create?id=123) の両方からIDを取得
   const characterId = (params.id as string | null) || searchParams.get("id");
 
   const [name, setName] = useState("");
